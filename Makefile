@@ -1,4 +1,4 @@
-OUT_DIR="build/macos_debug"
+OUT_DIR="build"
 ODIN_FLAGS=-debug
 
 atlas_build:
@@ -9,4 +9,4 @@ build: atlas_build
 	@odin build src -out:$(OUT_DIR)/game.bin
 
 run: build
-	@./build/macos_debug/game.bin
+	@./$(OUT_DIR)/game.bin
