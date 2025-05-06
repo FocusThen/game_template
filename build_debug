@@ -5,6 +5,9 @@ OUT_DIR="build/macos_debug"
 ODIN_FLAGS=-debug
 
 mkdir -p "$OUT_DIR"
+
+odin run src/atlas-builder
+
 odin build src -out:$OUT_DIR/game.bin
 
 # copy assets
