@@ -1,5 +1,6 @@
 package game
 
+import hm "./handle-map"
 import rl "vendor:raylib"
 
 ATLAS_DATA :: #load("../atlas.png")
@@ -12,6 +13,14 @@ COLOR_FG :: rl.Color{241, 167, 189, 255}
 
 Vec2 :: rl.Vector2
 Rect :: rl.Rectangle
+
+
+Game_State :: struct {
+	ents: hm.Handle_Map(Entity, Entity_Handle, 69696969),
+}
+
+game_state, gs: ^Game_State
+
 main :: proc() {
 	rl.InitWindow(1280, 720, "Game template")
 	rl.SetTargetFPS(240)
