@@ -1,22 +1,13 @@
-/* Handle-based map using static virtual arena. By Karl Zylinski (karl@zylinski.se)
+/* Handle-based map using fixed arrays. By Karl Zylinski (karl@zylinski.se)
 
 The Handle_Map maps a handle to an item. A handle consists of an index and a
 generation. The item can be any type. Such a handle can be stored as a permanent
-reference, where you'd usually store a pointer. The benefit of storing handles
-instead of pointers is that you know if a slot has been reused, thanks to the
-generation number. This makes it much easier to several systems to work with,
-and store references to the items in the handle map.
+reference, where you'd usually store a pointer. The benefit of handles is that
+you know if some other system has destroyed the object at that index, since the
+generation will then differ.
 
-This implementation uses a dynamic array and static virtual arena. The dynamic
-array allocates its data (its items) into the arena. This means that virtual
-memory is reserved up-front when the handle map is created. You can use a very
-big up-front reservation since it is just a reservation: Reserving virtual
-memory does not make the memory usage go up. It goes up when the dynamic array
-actually grows into that reserved space.
-
-Odin's virtual arena lets the dynamic array grow in-place as long as no other
-allocation into the arena has happened in-between, which is always the case here.
-So no pointers will ever move!
+This implementation uses fixed arrays and therefore
+involves no dynamic memory allocations.
 
 Example (assumes this package is imported under the alias `hm`):
 
@@ -28,17 +19,16 @@ Example (assumes this package is imported under the alias `hm`):
 		pos: [2]f32,
 	}
 
-	// The number 10000 results in a virtual reserve of 10000*size_of(Entity)
-	// bytes. It's just a reserve. The physical memory usage will go up when
-	// that memory is committed as part of the dynamic array inside the
-	// Handle_Map grows.
-	entities: hm.Handle_Map(Entity, Entity_Handle, 10000)
+	// Note: We use `1024`, if you use a bigger number within a proc you may
+	// blow the stack. In those cases: Store the array inside a global variable
+	// or a dynamically allocated struct.
+	entities: hm.Handle_Map(Entity, Entity_Handle, 1024)
 
 	h1 := hm.add(&entities, Entity { pos = { 5, 7 } })
 	h2 := hm.add(&entities, Entity { pos = { 10, 5 } })
 
 	// Resolve handle -> pointer
-	if h2e := hm.get(entities, h2); h2e != nil {
+	if h2e := hm.get(&entities, h2); h2e != nil {
 		h2e.pos.y = 123
 	}
 
@@ -55,14 +45,10 @@ Example (assumes this package is imported under the alias `hm`):
 	for e, h in hm.iter(&ent_iter) {
 		e.pos += { 5, 1 }
 	}
-
-	hm.delete(&entities)
 */
-package handle_map_virtual
+package handle_map_fixed
 
-import "base:runtime"
-import "base:builtin"
-import vmem "core:mem/virtual"
+import "base:intrinsics"
 
 // Returned from the `add` proc. Store these as permanent references to items in
 // the handle map. You can resolve the handle to a pointer using the `get` proc.
@@ -76,135 +62,87 @@ Handle :: struct {
 	gen: u32,
 }
 
-// `T` is the type to store in the Handle_Map.
-//
-// `HT` is the handle type. Usually `My_Handle_Type :: distinct hm.Handle`.
-//
-// `Max` is the maximum number of items the Handle_Map can store. Since the
-// Handle_Map uses virtual memory, you can choose a very big value for `Max`:
-// It will only be used to reserve virtual memory. Actual physical memory is
-// only allocated as the `items` array grows into that reserved memory.
-Handle_Map :: struct($T: typeid, $HT: typeid, $Max: int) {
-	// Each item much have a field `handle` of type `HT`.
+Handle_Map :: struct($T: typeid, $HT: typeid, $N: int) {
+	// Each item must have a field `handle` of type `HT`.
 	//
 	// There's always a "dummy element" at index 0. This way, a Handle with
-	// `idx == 0` means "no Handle".
-	items: [dynamic]T,
+	// `idx == 0` means "no Handle". This means that you actually have `N - 1`
+	// items available.
+	items:        [N]T,
 
-	// Arena that stores the data for each of the items. It will have room for
-	// `Max` number of elements.
-	items_arena: ^vmem.Arena,
+	// How much of `items` that is in use.
+	num_items:    u32,
 
-	// The indices of unused slots. `remove` will add things to it and `add`
-	// will remove things from it.
-	unused_items: [dynamic]u32,
+	// The index of the first unused element in `items`. At this index in
+	// `unused_items` you'll find the next-next unused index. Used by `add` and
+	// originally set by `remove`.
+	next_unused:  u32,
+
+	// An element in this array that is non-zero means the thing at that index
+	// in `items` is unused. The non-zero number is the index of the next unused
+	// item. This forms a linked series of indices. The series starts with
+	// `next_unused`.
+	unused_items: [N]u32,
+
+	// Only used for making it possible to quickly calculate the number of valid
+	// elements.
+	num_unused:   u32,
 }
 
-// Usually you can just declare the Handle_Map using
-// `hm: Handle_Map(Item_Type, Handle_Type, 10000)`, but if you want to override
-// the allocator used for `unused_items`, then you can instead do:
-// `hm := hm.make(Item_Type, Handle_Type, 10000, some_allocator)`
-make :: proc($T: typeid, $HT: typeid, $Max: int, allocator := context.allocator, loc := #caller_location) -> (Handle_Map(T, HT, Max), vmem.Allocator_Error) #optional_allocator_error {
-	arena_bootstrap: vmem.Arena
-	err := vmem.arena_init_static(&arena_bootstrap, uint(Max * size_of(T) + size_of(vmem.Arena)))
-
-	if err != nil {
-		return {}, err
-	}
-
-	// We allocate the arena struct into the arena itself, the reference to the
-	// arena inside the allocator that is sent into the dynamic array stays fixed.
-	arena := new(vmem.Arena, vmem.arena_allocator(&arena_bootstrap), loc)
-	arena^ = arena_bootstrap
-
-	return {
-		unused_items = runtime.make([dynamic]u32, allocator, loc),
-		items_arena = arena,
-		items = runtime.make([dynamic]T, vmem.arena_allocator(arena), loc),
-	}, nil
-}
-
-// Deallocate all memory associated with the Handle_Map.
-delete :: proc(m: ^Handle_Map($T, $HT, $Max), loc := #caller_location) {
-	// We copy out the arena here since the arena itself is allocated into the
-	// arena. Destroying it directly would crash since the arena struct is lost
-	// while it still has cleanup to do.
-	if m.items_arena != nil{
-		arena := m.items_arena^
-		vmem.arena_destroy(&arena)
-	}
-
-	// Can't store this in the `items_arena` since then `items` would not be
-	// able to reallocate in-place.
-	// 
-	// Also, no need to make a separate arena for this one: It serves no
-	// purpose: You don't need stable pointers to the items in this array.
-	runtime.delete(m.unused_items, loc)
-}
-
-// Empties the handle map without deallocating any memory.
-clear :: proc(m: ^Handle_Map($T, $HT, $Max), loc := #caller_location) {
-	runtime.clear(&m.items)
-	runtime.clear(&m.unused_items)
+// Clears the handle map using `mem_zero`. It doesn't do `m^ = {}` because that
+// may blow the stack for a handle map with very big `N`
+clear :: proc(m: ^Handle_Map($T, $HT, $N)) {
+	intrinsics.mem_zero(m, size_of(m^))
 }
 
 // Add a value of type `T` to the handle map. Returns a handle you can use as a
 // permanent reference.
 //
-// This may cause the `items` array to grow. Since the backing memory of `items`
-// is always the most recent allocation into `items_arena`, then arena is able
-// to reallocate the dynamic array `items` in-place: No pointers will move.
+// Will reuse the item at `next_unused` if that value is non-zero.
 //
-// Will reuse slots from `unused_items` array if there are any.
-add :: proc(m: ^Handle_Map($T, $HT, $Max), v: T, loc := #caller_location) -> (res: HT, err: vmem.Allocator_Error) #optional_allocator_error {
-	if m.items_arena == nil {
-		m^ = make(T, HT, Max, loc = loc) or_return
-	}
-
+// Second return value is `false` if the handle-based map is full.
+add :: proc(m: ^Handle_Map($T, $HT, $N), v: T) -> (HT, bool) #optional_ok {
 	v := v
 
-	if builtin.len(m.unused_items) > 0 {
-		reuse_idx := pop(&m.unused_items)
-		reused := &m.items[reuse_idx]
-		gen := reused.handle.gen
-		reused^ = v
-		reused.handle.idx = u32(reuse_idx)
-		reused.handle.gen = gen + 1
-		return reused.handle, nil
+	if m.next_unused != 0 {
+		idx := m.next_unused
+		item := &m.items[idx]
+		m.next_unused = m.unused_items[idx]
+		m.unused_items[idx] = 0
+		gen := item.handle.gen
+		item^ = v
+		item.handle.idx = u32(idx)
+		item.handle.gen = gen + 1
+		m.num_unused -= 1
+		return item.handle, true
 	}
 
-	if builtin.len(m.items) == 0 {
-		append(&m.items, T{})
+	// We always have a "dummy item" at index zero. This is because handle.idx
+	// being zero means "no item", so we can't use that slot for anything.
+	if m.num_items == 0 {
+		m.items[0] = {}
+		m.num_items += 1
 	}
 
-	new_item := v
-	new_item.handle.idx = u32(builtin.len(m.items))
-	new_item.handle.gen = 1
-	_, append_err := append(&m.items, new_item)
-
-	if append_err != nil {
-		// If the append couldn't grow the dynamic array due to out of memory,
-		// then it is probably because it tried to make it bigger than what has
-		// been reserved for it. In that case we try to grow it again, but to
-		// the exact maximum that should fit in the arena.
-		if append_err == .Out_Of_Memory {
-			reserve(&m.items, cap(m^)) or_return
-			append(&m.items, new_item) or_return
-		} else {
-			return {}, append_err
-		}
+	if m.num_items == len(m.items) {
+		return {}, false
 	}
 
-	return new_item.handle, nil
+	item := &m.items[m.num_items]
+	item^ = v
+	item.handle.idx = u32(m.num_items)
+	item.handle.gen = 1
+	m.num_items += 1
+	return item.handle, true
 }
 
-// Resolve a handle to a pointer of type `^T`. The pointer is stable due to the
-// usage of the virtual static arena. But you should _not_ store the pointer
+// Resolve a handle to a pointer of type `^T`. The pointer is stable since the
+// handle map uses a fixed array. But you should _not_ store the pointer
 // permanently. The item may get reused if any part of your program destroys and
 // reuses that slot. Only store handles permanently and temporarily resolve them
 // into pointers as needed.
-get :: proc(m: Handle_Map($T, $HT, $Max), h: HT) -> ^T {
-	if h.idx <= 0 || h.idx >= u32(builtin.len(m.items)) {
+get :: proc(m: ^Handle_Map($T, $HT, $N), h: HT) -> ^T {
+	if h.idx <= 0 || h.idx >= m.num_items {
 		return nil
 	}
 
@@ -217,55 +155,46 @@ get :: proc(m: Handle_Map($T, $HT, $Max), h: HT) -> ^T {
 
 // Remove an item from the handle map. You choose which item by passing a handle
 // to this proc. The item is not really destroyed, rather its index is just
-// added to the `unused_items` array. `handle.idx` on the item is set to zero,
-// this is used by the `iter` proc in order to skip that item when iterating.
-remove :: proc(m: ^Handle_Map($T, $HT, $Max), h: HT) {
-	if h.idx <= 0 || h.idx >= u32(builtin.len(m.items)) {
+// set on `m.next_unused`. Also, the item's `handle.idx` is set to zero, this
+// is used by the `iter` proc in order to skip that item when iterating.
+remove :: proc(m: ^Handle_Map($T, $HT, $N), h: HT) {
+	if h.idx <= 0 || h.idx >= m.num_items {
 		return
 	}
 
 	if item := &m.items[h.idx]; item.handle == h {
-		append(&m.unused_items, h.idx)
-
-		// This makes the item invalid. `iter` uses that to skip over it.
-		// We'll set the index back if the slot is reused.
+		m.unused_items[h.idx] = m.next_unused
+		m.next_unused = h.idx
+		m.num_unused += 1
 		item.handle.idx = 0
 	}
 }
 
-// Tells you if a handle maps to a valid item.
-valid :: proc(m: Handle_Map($T, $HT, $Max), h: HT) -> bool {
-	return get(m, h) != nil
+// Tells you if a handle maps to a valid item. This is done by checking if the
+// handle on the item is the same as the passed handle.
+valid :: proc(m: Handle_Map($T, $HT, $N), h: HT) -> bool {
+	return h.idx > 0 && h.idx < m.num_items && m.items[h.idx].handle == h
 }
 
 // Tells you how many valid items there are in the handle map.
-len :: proc(m: Handle_Map($T, $HT, $Max)) -> int {
-	return builtin.len(m.items) - builtin.len(m.unused_items)
+num_used :: proc(m: Handle_Map($T, $HT, $N)) -> int {
+	return int(m.num_items - m.num_unused)
 }
 
-// Calculates how many items you could, in theory, fit into the Handle_Map. In
-// many cases the Handle_Map will be reserved with a very very large number, so
-// this capacity may have an absurd value.
-//
-// Note: This does not just return `Max`. That's because the amount of memory
-// may have been rounded upwards to nearest page size.
-cap :: proc(m: Handle_Map($T, $HT, $Max)) -> int {
-	if m.items_arena == nil {
-		return 0
-	}
-
-	return int((m.items_arena.total_reserved - size_of(vmem.Arena)) / size_of(T))
+// The maximum number of items the handle map can contain.
+cap :: proc(m: Handle_Map($T, $HT, $N)) -> int {
+	return N
 }
 
 // For iterating a handle map. Create using `make_iter`.
-Handle_Map_Iterator :: struct($T: typeid, $HT: typeid, $Max: int) {
-	m: ^Handle_Map(T, HT, Max),
-	index: int,
+Handle_Map_Iterator :: struct($T: typeid, $HT: typeid, $N: int) {
+	m:     ^Handle_Map(T, HT, N),
+	index: u32,
 }
 
 // Create an iterator. Use with `iter` to do the actual iteration.
-make_iter :: proc(m: ^Handle_Map($T, $HT, $Max)) -> Handle_Map_Iterator(T, HT, Max) {
-	return { m = m }
+make_iter :: proc(m: ^Handle_Map($T, $HT, $N)) -> Handle_Map_Iterator(T, HT, N) {
+	return {m = m, index = 1}
 }
 
 // Iterate over the handle map. Skips unused slots, meaning that it skips slots
@@ -274,11 +203,11 @@ make_iter :: proc(m: ^Handle_Map($T, $HT, $Max)) -> Handle_Map_Iterator(T, HT, M
 // Usage:
 //     my_iter := hm.make_iter(&my_handle_map)
 //     for e in hm.iter(&my_iter) {}
-// 
+//
 // Instead of using an iterator you can also loop over `items` and check if
 // `item.handle.idx == 0` and in that case skip that item.
-iter :: proc(it: ^Handle_Map_Iterator($T, $HT, $Max)) -> (val: ^T, h: HT, cond: bool) {
-	for _ in it.index..<builtin.len(it.m.items) {
+iter :: proc(it: ^Handle_Map_Iterator($T, $HT, $N)) -> (val: ^T, h: HT, cond: bool) {
+	for _ in it.index ..< it.m.num_items {
 		item := &it.m.items[it.index]
 		it.index += 1
 
@@ -300,3 +229,4 @@ iter :: proc(it: ^Handle_Map_Iterator($T, $HT, $Max)) -> (val: ^T, h: HT, cond: 
 skip :: proc(e: $T) -> bool {
 	return e.handle.idx == 0
 }
+
