@@ -66,10 +66,10 @@ TEXTURES_DIR :: "res/images"
 LETTERS_IN_FONT :: "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz1234567890?!&.,_:[]-+"
 
 // The font to extract letters from
-FONT_FILENAME :: "res/fonts/font.ttf"
+FONT_FILENAME :: "res/fonts/alagard.ttf"
 
 // The font size of letters extracted from font
-FONT_SIZE :: 32
+FONT_SIZE :: 15
 
 
 // ---------------------

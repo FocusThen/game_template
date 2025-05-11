@@ -21,12 +21,17 @@ Game_State :: struct {
 	ents: hm.Handle_Map(Entity, Entity_Handle, 2048),
 }
 
-game_state: Game_State
-temp_game_state: Game_State
+game_state: ^Game_State
+
+
+TICKS_PER_SECOND :: 60
+SIM_RATE :: 1.0 / TICKS_PER_SECOND
 
 main :: proc() {
 	rl.InitWindow(1280, 720, "Game template")
 	rl.SetTargetFPS(240)
+
+	game_state = new(Game_State)
 
 	atlas_image := rl.LoadImageFromMemory(".png", raw_data(ATLAS_DATA), i32(len(ATLAS_DATA)))
 	atlas = rl.LoadTextureFromImage(atlas_image)
@@ -38,7 +43,6 @@ main :: proc() {
 
 
 	accumulator: f32
-	sim_rate :: 1.0 / 60.0
 
 	for !rl.WindowShouldClose() {
 
@@ -54,16 +58,23 @@ main :: proc() {
 
 		did_tick := false
 		defer if did_tick do tick_input = {}
-		for accumulator > sim_rate {
+		for accumulator > SIM_RATE {
 			did_tick = true
-			accumulator -= sim_rate
-			update(&game_state, tick_input, sim_rate)
+			accumulator -= SIM_RATE
+			update(game_state, tick_input, SIM_RATE)
 		}
 
-		runtime.mem_copy_non_overlapping(&temp_game_state, &game_state, size_of(Game_State))
-		update(&temp_game_state, frame_input, accumulator)
+		temp_game_state := new(Game_State, allocator = context.temp_allocator)
 
-		draw(temp_game_state)
+		runtime.mem_copy_non_overlapping(temp_game_state, game_state, size_of(Game_State))
+
+		actual_game_state := game_state
+		game_state = temp_game_state
+		defer game_state = actual_game_state
+
+		update(temp_game_state, frame_input, accumulator)
+
+		draw(temp_game_state^)
 
 		free_all(context.temp_allocator)
 	}
