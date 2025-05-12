@@ -12,10 +12,23 @@ Input_Action :: enum u8 {
 	Interact,
 }
 
+is_action_pressed :: proc(action: Input_Action) -> bool {
+	return .Pressed in game_state.input.actions[action]
+}
+
+is_action_released :: proc(action: Input_Action) -> bool {
+	return .Released in game_state.input.actions[action]
+}
+
+is_action_down :: proc(action: Input_Action) -> bool {
+	return .Down in game_state.input.actions[action]
+}
+
+
 frame_make_input :: proc() -> Input {
 	input: Input
 
-  input.cursor = rl.GetMousePosition()
+	input.cursor = rl.GetMousePosition()
 
 	input.actions[.Up] = input_flags_from_key(.W)
 	input.actions[.Left] = input_flags_from_key(.A)

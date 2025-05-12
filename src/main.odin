@@ -18,7 +18,14 @@ Rect :: rl.Rectangle
 
 
 Game_State :: struct {
-	ents: hm.Handle_Map(Entity, Entity_Handle, 2048),
+	input:                   Input, // this gets accumulated every actual render frame
+
+	// rest updated when tick happens
+	using entity_game_state: Entity_Game_State,
+	scratch:                 Game_State_Scratch,
+}
+Game_State_Scratch :: struct {
+	using entity_scratch: Entity_Scratch,
 }
 
 game_state: ^Game_State
@@ -39,9 +46,6 @@ main :: proc() {
 	font = load_atlased_font()
 	rl.SetShapesTexture(atlas, SHAPES_TEXTURE_RECT)
 
-	tick_input: Input
-
-
 	accumulator: f32
 
 	for !rl.WindowShouldClose() {
@@ -49,19 +53,22 @@ main :: proc() {
 		frame_time := rl.GetFrameTime()
 		accumulator += frame_time
 
-		frame_input := frame_make_input()
-		tick_input.cursor = frame_input.cursor
+		{
+			frame_input := frame_make_input()
+			game_state.input.cursor = frame_input.cursor
 
-		for flags, action in frame_input.actions {
-			tick_input.actions[action] += flags
+			for flags, action in frame_input.actions {
+				game_state.input.actions[action] += flags
+			}
 		}
 
 		did_tick := false
-		defer if did_tick do tick_input = {}
+		defer if did_tick do game_state.input = {}
 		for accumulator > SIM_RATE {
 			did_tick = true
 			accumulator -= SIM_RATE
-			update(game_state, tick_input, SIM_RATE)
+			update(game_state, SIM_RATE)
+			input_clear_temp(&game_state.input)
 		}
 
 		temp_game_state := new(Game_State, allocator = context.temp_allocator)
@@ -72,8 +79,7 @@ main :: proc() {
 		game_state = temp_game_state
 		defer game_state = actual_game_state
 
-		update(temp_game_state, frame_input, accumulator)
-
+		update(temp_game_state, accumulator)
 		draw(temp_game_state^)
 
 		free_all(context.temp_allocator)
@@ -83,8 +89,18 @@ main :: proc() {
 }
 
 
-update :: proc(_game_state: ^Game_State, input: Input, delta_t: f32) {
+update :: proc(_game_state: ^Game_State, delta_t: f32) {
 
+	// auto-zero game frame
+	{
+		game_state.scratch = {}
+		entity_scratch_reset(&game_state.scratch.entity_scratch)
+	}
+
+
+	for e in get_all_ents() {
+
+	}
 }
 
 

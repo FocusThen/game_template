@@ -3,19 +3,28 @@ package game
 import hm "./handle-map"
 import "core:log"
 
-Entity_Handle :: distinct hm.Handle
-Entity :: struct {
-	handle:                 Entity_Handle,
-	kind:                   Entity_Kind,
-	update_proc, draw_proc: proc(_: ^Entity),
-
-	//
-	texture:                Texture_Name,
-	animation:              Animation_Name,
+Entity_Game_State :: struct {
+	ents: hm.Handle_Map(Entity, Entity_Handle, 2048),
 }
 
-@(rodata)
-zero_entity: Entity
+Entity_Scratch :: struct {
+	entity_list: [dynamic]^Entity,
+}
+
+
+entity_scratch_reset :: proc(frame: ^Entity_Scratch) {
+	game_state.scratch.entity_list = make(
+		[dynamic]^Entity,
+		0,
+		hm.num_used(game_state.ents),
+		allocator = context.temp_allocator,
+	)
+	for &e in game_state.ents.items {
+		if hm.skip(e) do continue
+		append(&game_state.scratch.entity_list, &e)
+	}
+}
+
 
 entity_create :: proc() -> ^Entity {
 	handle, ok := hm.add(&game_state.ents, Entity{})
@@ -43,6 +52,23 @@ entity_destory :: proc(e: ^Entity) {
 	hm.remove(&game_state.ents, e.handle)
 }
 
+
+get_all_ents :: proc() -> []^Entity {
+	return game_state.scratch.entity_list[:]
+}
+
+Entity_Handle :: distinct hm.Handle
+Entity :: struct {
+	handle:                 Entity_Handle,
+	kind:                   Entity_Kind,
+	update_proc, draw_proc: proc(_: ^Entity),
+
+	//
+	texture:                Texture_Name,
+	animation:              Animation_Name,
+}
+@(rodata)
+zero_entity: Entity
 
 //
 // THE CONTENT ZONE
