@@ -98,6 +98,7 @@ update :: proc(_game_state: ^Game_State, delta_t: f32) {
 	}
 
 
+  // update entitys
 	for e in get_all_ents() {
 
 	}
