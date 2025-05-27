@@ -1,4 +1,4 @@
-package hash
+package handle_hash
 
 import core_hash "core:hash"
 
