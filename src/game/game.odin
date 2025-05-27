@@ -127,7 +127,7 @@ game_draw :: proc(_game_state: ^Game_State) {
 		rl.DrawTextEx(
 			rl.Font{},
 			"Draw call 1: This text + player + background graphics + tiles",
-			{-140, 20},
+			{-200, 20},
 			15,
 			0,
 			rl.WHITE,

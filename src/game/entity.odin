@@ -16,20 +16,6 @@ Entity_Scratch :: struct {
 	entity_list: [dynamic]^Entity,
 }
 
-Animation_Name :: enum {
-	Idle,
-	Run,
-}
-
-Animation :: struct {
-	texture:       rl.Texture2D,
-	num_frames:    int,
-	frame_timer:   f32,
-	current_frame: int,
-	frame_length:  f32,
-	name:          Animation_Name,
-}
-
 Entity_Handle :: distinct hm.Handle
 Entity :: struct {
 	handle:       Entity_Handle,
@@ -41,8 +27,8 @@ Entity :: struct {
 	draw_proc:    proc(_: ^Entity),
 	//
 	flip_x:       bool,
-	animations:   [dynamic]Animation,
-	current_anim: Animation,
+	animations:   [Animation_Name]Animation,
+	current_anim: Animation_Name,
 }
 
 @(rodata)
@@ -95,7 +81,8 @@ entity_scratch_reset :: proc(frame: ^Entity_Scratch) {
 
 update_entities :: proc() {
 	for e in get_all_ents() {
-		// update_animation(&e.current_anim)
+		update_animation(&e.animations[e.current_anim])
+
 		if e.update_proc != nil {
 			e.update_proc(e)
 		}
