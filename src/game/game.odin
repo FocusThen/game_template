@@ -11,6 +11,7 @@ Game_State :: struct {
 	world_time_elapse:       f64,
 	player_handle:           Entity_Handle,
 	using entity_game_state: Entity_Game_State,
+	asset_store:             Asset_Storage,
 	//
 	scratch:                 Game_State_Scratch,
 	delta:                   f32,
@@ -23,6 +24,7 @@ Game_State_Scratch :: struct {
 
 game_state: ^Game_State
 actual_game_state: ^Game_State
+font: rl.Font
 
 TICKS_PER_SECOND :: 60
 SIM_RATE :: 1.0 / TICKS_PER_SECOND
@@ -33,6 +35,7 @@ run :: proc() {
 
 	actual_game_state = new(Game_State)
 
+  asset_storage_init(&actual_game_state.asset_store)
 	game_init(actual_game_state)
 
 	accumulator: f32
@@ -74,6 +77,8 @@ game_init :: proc(_game_state: ^Game_State) {
 	game_state = _game_state
 	defer game_state = old_gs
 
+	// font
+	font = load_font(.Alagard, 15)
 
 	// player
 	e := entity_create(.player)
@@ -104,7 +109,6 @@ game_draw :: proc(_game_state: ^Game_State) {
 	game_state = _game_state
 	defer game_state = old_gs
 
-
 	rl.BeginDrawing()
 	rl.ClearBackground(COLOR_BG)
 	screen_width := f32(rl.GetScreenWidth())
@@ -120,7 +124,7 @@ game_draw :: proc(_game_state: ^Game_State) {
 
 		rl.BeginMode2D(game_camera)
 		rl.DrawTextEx(
-			rl.Font{},
+			font,
 			"Draw call 1: This text + player + background graphics + tiles",
 			{-200, 20},
 			15,
@@ -139,10 +143,10 @@ game_draw :: proc(_game_state: ^Game_State) {
 
 		rl.BeginMode2D(ui_camera)
 		rl.DrawTextEx(
-			rl.Font{},
+			font,
 			fmt.ctprintf("Draw call 2: This UI\nFPS: %v", rl.GetFPS()),
 			{5, 5},
-			20,
+			21,
 			0,
 			rl.WHITE,
 		)

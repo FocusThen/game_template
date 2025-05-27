@@ -1,3 +1,7 @@
+/*
+  Thanks to Karl Zylinski
+*/
+
 package assets_builder
 
 import "core:fmt"
@@ -59,12 +63,13 @@ main :: proc() {
 	// sound_paths := make([dynamic]string, context.temp_allocator)
 	// music_paths := make([dynamic]string, context.temp_allocator)
 
+
 	// font
 	{
 		file_infos := dir_path_to_file_infos("./res/fonts")
 		for fi in file_infos {
 			if strings.has_suffix(fi.name, ".ttf") {
-				append(&font_paths, fi.name)
+				append(&font_paths, fmt.tprintf("./res/fonts/%s", fi.name))
 			}
 		}
 	}
@@ -74,7 +79,7 @@ main :: proc() {
 		file_infos := dir_path_to_file_infos("./res/images")
 		for fi in file_infos {
 			if strings.has_suffix(fi.name, ".png") {
-				append(&texture_paths, fmt.tprintf("textures/%s", fi.name))
+				append(&texture_paths, fmt.tprintf("./res/images/%s", fi.name))
 			}
 		}
 	}
@@ -119,8 +124,9 @@ main :: proc() {
 		)
 	}
 
+  // HACK
 	load_name :: proc(path: string) -> string {
-		return fmt.tprintf("../%s", path)
+		return fmt.tprintf("../.%s", path)
 	}
 
 	fmt.fprintln(f, "TextureName :: enum {")

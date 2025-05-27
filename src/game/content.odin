@@ -56,13 +56,13 @@ setup_player :: proc(e: ^Entity) {
 	e.kind = .player
 
 	cat_idle := Animation {
-		texture      = rl.LoadTexture("./res/images/cat_idle.png"),
+		texture      = get_texture_by_name(.CatIdle),
 		num_frames   = 2,
 		frame_length = 0.5,
 		name         = .Idle,
 	}
 	cat_run := Animation {
-		texture      = rl.LoadTexture("./res/images/cat_run.png"),
+		texture      = get_texture_by_name(.CatRun),
 		num_frames   = 4,
 		frame_length = 0.1,
 		name         = .Run,

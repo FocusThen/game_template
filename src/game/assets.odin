@@ -25,25 +25,25 @@ FontName :: enum {
 when EmbedAssets {
 	all_textures := [TextureName]Asset {
 		.None = {},
-		.CatIdle = { path = "textures/cat_idle.png", path_hash = 12638305753974213458, data = #load("../textures/cat_idle.png"), },
-		.Platform = { path = "textures/platform.png", path_hash = 3613443037720844275, data = #load("../textures/platform.png"), },
-		.CatRun = { path = "textures/cat_run.png", path_hash = 14088011001370635388, data = #load("../textures/cat_run.png"), },
+		.CatIdle = { path = "./res/images/cat_idle.png", path_hash = 12534647828818326163, data = #load("../../res/images/cat_idle.png"), },
+		.Platform = { path = "./res/images/platform.png", path_hash = 11196211107178494034, data = #load("../../res/images/platform.png"), },
+		.CatRun = { path = "./res/images/cat_run.png", path_hash = 17419998793449677561, data = #load("../../res/images/cat_run.png"), },
 	}
 
 	all_fonts := [FontName]Asset {
-		.Alagard = { path = "alagard.ttf", path_hash = 7853314928550320052, data = #load("../alagard.ttf"), },
+		.Alagard = { path = "./res/fonts/alagard.ttf", path_hash = 5082885895800245697, data = #load("../../res/fonts/alagard.ttf"), },
 	}
 
 } else {
 	all_textures := [TextureName]Asset {
 		.None = {},
-		.CatIdle = { path = "textures/cat_idle.png", path_hash = 12638305753974213458, },
-		.Platform = { path = "textures/platform.png", path_hash = 3613443037720844275, },
-		.CatRun = { path = "textures/cat_run.png", path_hash = 14088011001370635388, },
+		.CatIdle = { path = "./res/images/cat_idle.png", path_hash = 12534647828818326163, },
+		.Platform = { path = "./res/images/platform.png", path_hash = 11196211107178494034, },
+		.CatRun = { path = "./res/images/cat_run.png", path_hash = 17419998793449677561, },
 	}
 
 	all_fonts := [FontName]Asset {
-		.Alagard = { path = "alagard.ttf", path_hash = 7853314928550320052, },
+		.Alagard = { path = "./res/fonts/alagard.ttf", path_hash = 5082885895800245697, },
 	}
 
 }
