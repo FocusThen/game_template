@@ -8,11 +8,16 @@ asset_builder:
 	@odin run asset_builder
 	@rm -f asset_builder.bin
 
-build: asset_builder
-	@$(build_cmd)
+build_common:
+	@if [ ! -f src/game/asset.odin ]; then \
+		$(MAKE) asset_builder; \
+	fi
 
-debug:
-	@$(build_cmd) -debug
+build: build_common
+	@$(BASE_BUILD_CMD)
+
+debug: build_common
+	@$(BASE_BUILD_CMD) -debug
 
 run: debug
 	@./bin/game
