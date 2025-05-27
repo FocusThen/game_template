@@ -2,23 +2,18 @@ package game
 
 import "base:runtime"
 import "core:fmt"
-import "core:math/rand"
-import "core:time"
-import hm "utils:handle_map"
 import rl "vendor:raylib"
 
 
 Game_State :: struct {
-  input:                   Input, // this gets accumulated every actual render frame
-
-  // rest updated when tick happens
+	input:                   Input, // this gets accumulated every actual render frame
 	ticks:                   u64,
 	world_time_elapse:       f64,
 	player_handle:           Entity_Handle,
 	using entity_game_state: Entity_Game_State,
 	//
 	scratch:                 Game_State_Scratch,
-  delta: f32
+	delta:                   f32,
 }
 
 Game_State_Scratch :: struct {

@@ -2,6 +2,7 @@ package game
 
 import "core:fmt"
 import rl "vendor:raylib"
+import hm "utils:handle_map"
 
 Entity_Kind :: enum {
 	nil,
@@ -47,6 +48,10 @@ entity_setup :: proc(e: ^Entity, kind: Entity_Kind) {
 	}
 }
 
+// Get Player
+get_player :: proc() -> ^Entity{
+  return entity_from_handle(game_state.player_handle)
+}
 setup_player :: proc(e: ^Entity) {
 	e.kind = .player
 
