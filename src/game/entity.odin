@@ -18,17 +18,21 @@ Entity_Scratch :: struct {
 
 Entity_Handle :: distinct hm.Handle
 Entity :: struct {
-	handle:       Entity_Handle,
-	kind:         Entity_Kind,
+	handle:         Entity_Handle,
+	kind:           Entity_Kind,
 	//
-	pos:          Vec2,
+	pos:            Vec2,
+	velocity:       Vec2,
+	acceleration:   Vec2,
+	is_grounded:    bool,
+	collision_rect: rl.Rectangle,
 	//
-	update_proc:  proc(_: ^Entity),
-	draw_proc:    proc(_: ^Entity),
+	update_proc:    proc(_: ^Entity),
+	draw_proc:      proc(_: ^Entity),
 	//
-	flip_x:       bool,
-	animations:   [Animation_Name]Animation,
-	current_anim: Animation_Name,
+	flip_x:         bool,
+	animations:     [Animation_Name]Animation,
+	current_anim:   Animation_Name,
 }
 
 @(rodata)
@@ -92,5 +96,16 @@ update_entities :: proc() {
 draw_entities :: proc() {
 	for e in get_all_ents() {
 		e.draw_proc(e)
+
+    // Draw collision rectangle if debug mode is enabled
+		if game_state.is_debug_mode {
+			world_collision_rect := rl.Rectangle {
+				x      = e.pos.x + e.collision_rect.x,
+				y      = e.pos.y + e.collision_rect.y,
+				width  = e.collision_rect.width,
+				height = e.collision_rect.height,
+			}
+			rl.DrawRectangleLinesEx(world_collision_rect, 1.0, rl.RED)
+		}
 	}
 }

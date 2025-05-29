@@ -6,19 +6,23 @@ import rl "vendor:raylib"
 Input_Action :: enum u8 {
 	Left,
 	Right,
-	Up,
-	Down,
+	// Up,
+	// Down,
+  Jump,
 	Click,
 	Use,
 	Interact,
+  ToggleDebug
 }
 
 get_input_vector :: proc() -> Vec2 {
 	input: Vec2
 	if is_action_down(.Left) do input.x -= 1.0
 	if is_action_down(.Right) do input.x += 1.0
-	if is_action_down(.Down) do input.y += 1.0
-	if is_action_down(.Up) do input.y -= 1.0
+
+  // no vertical
+	// if is_action_down(.Down) do input.y += 1.0
+	// if is_action_down(.Up) do input.y -= 1.0
 
 	return input == {} ? {} : linalg.normalize(input)
 }
@@ -41,15 +45,22 @@ frame_make_input :: proc() -> Input {
 
 	input.cursor = rl.GetMousePosition()
 
-	input.actions[.Up] = input_flags_from_key(.W)
 	input.actions[.Left] = input_flags_from_key(.A)
 	input.actions[.Right] = input_flags_from_key(.D)
-	input.actions[.Down] = input_flags_from_key(.S)
+
 	input.actions[.Interact] = input_flags_from_key(.E)
+  input.actions[.Jump] = input_flags_from_key(.SPACE)
+
+  // no vertical actions
+	// input.actions[.Up] = input_flags_from_key(.W)
+	// input.actions[.Down] = input_flags_from_key(.S)
 
 
 	input.actions[.Click] = input_flags_from_mouse_button(.LEFT)
 	input.actions[.Use] = input_flags_from_mouse_button(.RIGHT)
+
+  // Bind F6 to toggle debug
+  input.actions[.ToggleDebug] = input_flags_from_key(.F6)
 
 	return input
 }

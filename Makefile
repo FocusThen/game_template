@@ -6,7 +6,7 @@ build_cmd = odin build src -out:${OUT_DIR} ${FLAGS}
 
 asset_builder:
 	@odin run asset_builder
-	@rm -f asset_builder
+	@rm -f asset_builder.bin
 
 build: asset_builder
 	@${build_cmd}

@@ -15,6 +15,8 @@ Game_State :: struct {
 	//
 	scratch:                 Game_State_Scratch,
 	delta:                   f32,
+	// debug
+	is_debug_mode:           bool,
 }
 
 Game_State_Scratch :: struct {
@@ -31,11 +33,11 @@ SIM_RATE :: 1.0 / TICKS_PER_SECOND
 
 run :: proc() {
 	rl.InitWindow(WINDOW_W, WINDOW_H, "Game")
-	rl.SetTargetFPS(60)
+	// rl.SetTargetFPS(60)
 
 	actual_game_state = new(Game_State)
 
-  asset_storage_init(&actual_game_state.asset_store)
+	asset_storage_init(&actual_game_state.asset_store)
 	game_init(actual_game_state)
 
 	accumulator: f32
@@ -69,6 +71,7 @@ run :: proc() {
 	}
 
 	rl.CloseWindow()
+	asset_storage_shutdown()
 }
 
 
@@ -83,6 +86,11 @@ game_init :: proc(_game_state: ^Game_State) {
 	// player
 	e := entity_create(.player)
 	game_state.player_handle = e.handle
+
+	platform_e := entity_create(.platform)
+	platform_e.pos = {-400, 50}
+	platform_e.collision_rect.width = 500
+	platform_e.collision_rect.height = 50
 }
 
 game_update :: proc(_game_state: ^Game_State, delta_t: f32) {
@@ -102,6 +110,12 @@ game_update :: proc(_game_state: ^Game_State, delta_t: f32) {
 	}
 
 	update_entities()
+
+	// Toggle debug mode on F6 press
+	if is_action_pressed(.ToggleDebug) {
+		game_state.is_debug_mode = !game_state.is_debug_mode
+		fmt.println("Debug Mode:", game_state.is_debug_mode)
+	}
 }
 
 game_draw :: proc(_game_state: ^Game_State) {
@@ -116,9 +130,10 @@ game_draw :: proc(_game_state: ^Game_State) {
 
 	// game world draw
 	{
+    player := get_player()
 		game_camera := rl.Camera2D {
 			zoom   = screen_height / PIXEL_WINDOW_HEIGHT,
-			target = {},
+			target = player.pos,
 			offset = {screen_width / 2, screen_height / 2},
 		}
 
