@@ -310,3 +310,20 @@ load_font :: proc(name: FontName, font_size: int) -> rl.Font {
 // 		return rl.LoadMusicStream(temp_cstring(s.path))
 // 	}
 // }
+
+// Add procedure to get all texture handles
+get_all_texture_handles :: proc() -> []Texture_Handle {
+    handles: [dynamic]Texture_Handle
+    for _, handle in g_as.texture_lookup {
+        append(&handles, handle)
+    }
+    return handles[:]
+}
+// Add procedure to get texture path
+get_texture_path :: proc(handle: Texture_Handle) -> string {
+    ta := hm.get(&g_as.textures, handle)
+    if ta != nil {
+        return strings.clone_from_cstring(ta.path)
+    }
+    return ""
+}

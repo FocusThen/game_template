@@ -72,6 +72,7 @@ run :: proc() {
 
 	rl.CloseWindow()
 	asset_storage_shutdown()
+	debug_shutdown()
 }
 
 
@@ -114,8 +115,8 @@ game_update :: proc(_game_state: ^Game_State, delta_t: f32) {
 	// Toggle debug mode on F6 press
 	if is_action_pressed(.ToggleDebug) {
 		game_state.is_debug_mode = !game_state.is_debug_mode
-		fmt.println("Debug Mode:", game_state.is_debug_mode)
 	}
+
 }
 
 game_draw :: proc(_game_state: ^Game_State) {
@@ -128,9 +129,8 @@ game_draw :: proc(_game_state: ^Game_State) {
 	screen_width := f32(rl.GetScreenWidth())
 	screen_height := f32(rl.GetScreenHeight())
 
-	// game world draw
 	{
-    player := get_player()
+		player := get_player()
 		game_camera := rl.Camera2D {
 			zoom   = screen_height / PIXEL_WINDOW_HEIGHT,
 			target = player.pos,
@@ -138,6 +138,7 @@ game_draw :: proc(_game_state: ^Game_State) {
 		}
 
 		rl.BeginMode2D(game_camera)
+
 		rl.DrawTextEx(
 			font,
 			"Draw call 1: This text + player + background graphics + tiles",
@@ -166,6 +167,19 @@ game_draw :: proc(_game_state: ^Game_State) {
 			rl.WHITE,
 		)
 
+		rl.EndMode2D()
+	}
+
+	// Debug
+	{
+		debug_camera := rl.Camera2D {
+			zoom   = screen_height / PIXEL_WINDOW_HEIGHT,
+			target = {},
+			offset = {screen_width / 2, screen_height / 2},
+		}
+		handle_editing_input(debug_camera)
+		rl.BeginMode2D(debug_camera)
+		draw_editing_mode(debug_camera)
 		rl.EndMode2D()
 	}
 
