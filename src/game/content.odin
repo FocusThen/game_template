@@ -93,11 +93,9 @@ setup_player :: proc(using e: ^Entity) {
 			width  = e.collision_rect.width,
 			height = e.collision_rect.height,
 		}
-		e.is_grounded = false
 
 		// check platforms
 		for platform in get_all_platforms() {
-
 			platfrom_rec := rl.Rectangle {
 				x      = platform.pos.x,
 				y      = platform.pos.y,
@@ -109,8 +107,7 @@ setup_player :: proc(using e: ^Entity) {
 				player_prev_bottom := prev_pos.y + e.collision_rect.y + e.collision_rect.height
 				platform_top := platfrom_rec.y
 				if player_prev_bottom <= platform_top {
-					e.pos.y =
-						platfrom_rec.y - e.collision_rect.y - e.collision_rect.height
+					e.pos.y = platfrom_rec.y - e.collision_rect.y - e.collision_rect.height
 					e.velocity.y = 0
 					e.is_grounded = true
 					break
@@ -120,6 +117,7 @@ setup_player :: proc(using e: ^Entity) {
 
 		if e.is_grounded && is_action_pressed(.Jump) {
 			jump_force := -300.0
+			e.is_grounded = false
 			e.velocity.y = f32(jump_force)
 		}
 
