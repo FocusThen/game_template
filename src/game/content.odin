@@ -155,24 +155,19 @@ get_all_platforms :: proc() -> [dynamic]^Entity {
 setup_platfrom :: proc(using e: ^Entity) {
 	kind = .platform
 
+
+	e.texture = get_texture_by_name(.Platform)
+
 	collision_rect = rl.Rectangle {
 		x      = 0,
 		y      = 0,
-		width  = 100,
-		height = 30,
+		width  = 96,
+		height = 16,
 	}
 
 	update_proc = proc(e: ^Entity) {}
 
 	draw_proc = proc(e: ^Entity) {
-		rl.DrawRectangleRec(
-			rl.Rectangle {
-				x = e.pos.x + e.collision_rect.x,
-				y = e.pos.y + e.collision_rect.y,
-				width = e.collision_rect.width,
-				height = e.collision_rect.height,
-			},
-			rl.GRAY,
-		)
+		rl.DrawTexture(e.texture, i32(e.pos.x), i32(e.pos.y), rl.WHITE)
 	}
 }

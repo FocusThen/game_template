@@ -72,7 +72,6 @@ run :: proc() {
 
 	rl.CloseWindow()
 	asset_storage_shutdown()
-	debug_shutdown()
 }
 
 
@@ -89,9 +88,7 @@ game_init :: proc(_game_state: ^Game_State) {
 	game_state.player_handle = e.handle
 
 	platform_e := entity_create(.platform)
-	platform_e.pos = {-400, 50}
-	platform_e.collision_rect.width = 500
-	platform_e.collision_rect.height = 50
+	platform_e.pos = {-10, 50}
 }
 
 game_update :: proc(_game_state: ^Game_State, delta_t: f32) {
@@ -167,19 +164,6 @@ game_draw :: proc(_game_state: ^Game_State) {
 			rl.WHITE,
 		)
 
-		rl.EndMode2D()
-	}
-
-	// Debug
-	{
-		debug_camera := rl.Camera2D {
-			zoom   = screen_height / PIXEL_WINDOW_HEIGHT,
-			target = {},
-			offset = {screen_width / 2, screen_height / 2},
-		}
-		handle_editing_input(debug_camera)
-		rl.BeginMode2D(debug_camera)
-		draw_editing_mode(debug_camera)
 		rl.EndMode2D()
 	}
 

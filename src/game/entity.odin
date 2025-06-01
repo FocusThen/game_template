@@ -31,6 +31,7 @@ Entity :: struct {
 	draw_proc:      proc(_: ^Entity),
 	//
 	flip_x:         bool,
+	texture:        rl.Texture2D,
 	animations:     [Animation_Name]Animation,
 	current_anim:   Animation_Name,
 }
@@ -97,7 +98,7 @@ draw_entities :: proc() {
 	for e in get_all_ents() {
 		e.draw_proc(e)
 
-    // Draw collision rectangle if debug mode is enabled
+		// Draw collision rectangle if debug mode is enabled
 		if game_state.is_debug_mode {
 			world_collision_rect := rl.Rectangle {
 				x      = e.pos.x + e.collision_rect.x,
